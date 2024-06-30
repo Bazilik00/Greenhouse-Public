@@ -1,0 +1,108 @@
+﻿@inherits LayoutComponentBase
+@implements IDisposable
+
+<MudThemeProvider/>
+<MudDialogProvider/>
+<MudSnackbarProvider/>
+
+<style>
+	.link-font {
+		font-size: 25px;
+	}
+	.test{
+		height: 20px !important;
+		width: 20px !important;
+	}
+</style>
+
+<MudLayout style="">
+    <MudDrawerContainer Class="mud-height-full">
+        <MudAppBar Style="background: #ff6400; height: 110px; padding: 10px;" Fixed=false>
+            <MudIconButton Style="padding: 25px 0 0 10px"
+                           Icon="@Icons.Material.Filled.Menu"
+                           Color="Color.Inherit" Edge="Edge.Start"
+                           OnClick="@MenuClickHandle" Size="Size.Large"/>
+            <MudSpacer/>
+            <MudText Typo="Typo.h6" Class="mx-3 ml-7 mt-5">@(_dateTime.ToString("HH:mm"))</MudText>
+        </MudAppBar>
+        <MudDrawer @bind-Open="@open" Elevation="1" Variant="@DrawerVariant.Temporary" Width="900px">
+            <MudNavMenu>
+                <MudText Align="Align.Center" Typo="Typo.h3" Class="px-4 my-3">Меню</MudText>
+                <MudDivider Class="my-2"/>
+                <MudNavLink Href="/" Match="NavLinkMatch.All" Class="link-font">
+                    <MudIcon Icon="@Icons.Material.Rounded.Home" Size="Size.Large" Class="pt-6"/>
+                    <MudText Inline Typo="Typo.h4">
+                        Окружающая среда
+                    </MudText>
+
+                </MudNavLink>
+                <MudNavLink Href="/Microclimate" Class="link-font">
+                    <MudIcon Icon="@Icons.Material.Rounded.Emergency" Size="Size.Large" Class="pt-6"/>
+                    <MudText Inline Typo="Typo.h4">
+                        Микроклимат
+                    </MudText>
+                </MudNavLink>
+                <MudNavLink Href="/Watering" Class="link-font">
+                    <MudIcon Icon="@Icons.Material.Rounded.WaterDrop" Size="Size.Large" Class="pt-6"/>
+                    <MudText Inline Typo="Typo.h4">
+                        Полив
+                    </MudText>
+                </MudNavLink>
+                <MudNavLink Href="/Lamps" Class="link-font">
+                    <MudIcon Icon="@Icons.Material.Rounded.Lightbulb" Size="Size.Large" Class="pt-6"/>
+                    <MudText Inline Typo="Typo.h4">
+                        Фитолампа
+                    </MudText>
+                </MudNavLink>
+                @* <MudNavLink Href="/Grafics"Class="link-font"> *@
+                @*     <MudIcon Icon="@Icons.Material.Rounded.BarChart" Size="Size.Large" Class="pt-6"/> *@
+                @*     <MudText Inline Typo="Typo.h4"> *@
+                @*         Графики *@
+                @*     </MudText> *@
+                @* *@
+                @* </MudNavLink> *@
+            </MudNavMenu>
+        </MudDrawer>
+        <MudMainContent Style="padding:0px; height: 100%;">
+            @Body
+        </MudMainContent>
+    </MudDrawerContainer>
+</MudLayout>
+
+
+@code
+{
+    bool open;
+
+    private DateTime _dateTime;
+
+    public void MenuClickHandle()
+    {
+        open = true;
+    }
+
+    private readonly PeriodicTimer _periodicTimer = new(TimeSpan.FromMinutes(1));
+    private Task _processingTask = Task.CompletedTask;
+
+    protected override Task OnInitializedAsync()
+    {
+        _processingTask = Task.Run(TimerProcessing);
+        return base.OnInitializedAsync();
+    }
+
+    private async void TimerProcessing()
+    {
+        while (await _periodicTimer.WaitForNextTickAsync())
+        {
+            _dateTime = DateTime.Now;
+            
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose()
+    {
+        _periodicTimer.Dispose();
+        _processingTask?.Dispose();
+    }
+}

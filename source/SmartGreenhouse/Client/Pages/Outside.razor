@@ -1,0 +1,70 @@
+﻿@page "/"
+@using Client.Services
+@using Shared.Dto.ServerResponses
+@using System.Timers
+@inject OutsideSensorsService StateService
+@implements IDisposable
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-5">
+	<MudPaper Class="pa-2" Elevation="10">
+		@if (_state is null)
+		{
+			<MudProgressLinear Indeterminate Size="Size.Large"/>
+		}
+		else
+		{
+			<MudSimpleTable Bordered Style="overflow-x: auto;" Elevation="0">
+				<tbody>
+				<tr>
+					<td><MudText Typo="Typo.h4">Температура окружающей среды</MudText></td>
+					<td><MudText Typo="Typo.h4">@_state.Temperature &deg;С</MudText></td>
+				</tr>
+				<tr>
+					<td><MudText Typo="Typo.h4">Влажность окружающей среды</MudText></td>
+					<td><MudText Typo="Typo.h4">@_state.Humidity %</MudText></td>
+				</tr>
+				<tr>
+					<td><MudText Typo="Typo.h4">Освещённость окружающей среды</MudText></td>
+					<td><MudText Typo="Typo.h4">@_state.Illumination %</MudText></td>
+				</tr>
+				</tbody>
+			</MudSimpleTable>
+		}
+	</MudPaper>
+</MudContainer>
+
+@code
+{
+	private OutsideMicroclimateState? _state;
+	private readonly PeriodicTimer _periodicTimer = new(TimeSpan.FromSeconds(1));
+	private Task _processingTask = Task.CompletedTask;
+	
+	protected override Task OnInitializedAsync()
+	{
+		_processingTask = Task.Run(TimerProcessing);
+		return base.OnInitializedAsync();
+	}
+
+	private async void TimerProcessing()
+	{
+		while (await _periodicTimer.WaitForNextTickAsync())
+		{
+			try
+			{
+				_state = await StateService.GetState();
+				await InvokeAsync(StateHasChanged);
+			}
+			catch
+			{
+				await Task.Delay(5000);
+			}
+		}
+
+		StateHasChanged();
+	}
+
+	public void Dispose()
+	{
+		_periodicTimer.Dispose();
+		_processingTask?.Dispose();
+	}
+}

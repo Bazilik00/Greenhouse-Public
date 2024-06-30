@@ -1,0 +1,38 @@
+
+services:
+
+  smart_green_house_client:
+      image: bazilik00/smart_green_house_client  
+      container_name: smart_green_house_client  
+      hostname: client
+      restart: always
+
+      build:
+        dockerfile: ./Client/Dockerfile
+
+      volumes:
+        - ./Configs/nginx.conf:/etc/nginx/nginx.conf
+        - ./Configs/appsettings.json:/usr/share/nginx/html/appsettings.json:ro
+      environment:
+        - ASPNETCORE_ENVIRONMENT=Production
+        - TZ=Asia/Krasnoyarsk
+      ports:
+        - "80:80"
+
+  smart_green_house_server:
+    image: bazilik00/smart_green_house_server 
+    container_name: smart_green_house_server
+    hostname: server
+    restart: always
+
+    build:
+      dockerfile: ./Server/Dockerfile
+
+    volumes:
+      - ./Configs/appsettings.server.json:/app/appsettings.json:ro
+      - ./database/:/database
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - TZ=Asia/Krasnoyarsk
+    ports:
+      - "5261:8080"

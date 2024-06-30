@@ -1,0 +1,266 @@
+﻿@page "/Lamps"
+@using System.Globalization
+@using Client.Components
+@using Client.Services
+@using MudBlazor.Utilities
+@using Shared.Dto.ServerResponses
+@using Shared.Models
+@using Shared.ValueModels
+@inject IDialogService DialogService
+@inject SensorsClientService StateService
+@implements IDisposable
+<style>
+	.center-tabs {
+		font-size: 25px;
+	}
+</style>
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-0 mud-height-full">
+    <SensorsBoxTabContainer ActiveIndexChanged="ChangeClient">
+        @if (_state is null)
+        {
+            <MudProgressLinear Indeterminate Size="Size.Large"/>
+        }
+        else
+        {
+            <MudStack Class="scroll-paper" Style="border: solid 2px black">
+                <MudPaper Class="ma-5">
+                    <MudSimpleTable Bordered Style="border:solid 1px var(--mud-palette-table-lines)">
+                        <tbody>
+                        <tr>
+                            <td>
+                                <MudText Typo="Typo.h5" Style="font-size: 60px">Освещённость: @_state?.IlluminationData.Current %</MudText>
+                            </td>
+                            <td>
+                                <MudText Typo="Typo.h5" Style="font-size: 60px">Мин: @_state?.IlluminationData.Min %</MudText>
+                            </td>
+                            <td>
+                                <MudText Typo="Typo.h5" Style="font-size: 60px">Макс: @_state?.IlluminationData.Max %</MudText>
+                            </td>
+                            <td>
+                                <MudButton OnClick="OpenDialog"
+                                           Variant="Variant.Filled" Size="Size.Large" Class="large-button"
+                                           Color="Color.Primary">
+                                    Изменить
+                                </MudButton>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </MudSimpleTable>
+
+                </MudPaper>
+
+                <MudPaper Class="ma-5">
+                    <MudStack Row Class="px-10">
+                        <MudSwitch @onclick="PowerCallback"
+                                   Label="Питание лампы"
+                                   LabelPosition="LabelPosition.Start"
+                                   @bind-Value="@_powerSwitch"
+                                   Size="Size.Large"
+                                   Color="Color.Primary"/>
+                    </MudStack>
+
+                    <MudStack Style="gap: 35px" Class="px-10 mt-10" Justify="Justify.Center">
+                        <MudSwitch @bind-Value="@_biColorSwitch"
+                                   Size="Size.Large" Color="Color.Success" Class="large" T="bool"
+                                   @onclick="ModeSwitchCallback"
+                                   LabelPosition="LabelPosition.Start"
+                                   Style="width: min-content" Label="Биколор"/>
+
+                        <MudSwitch @bind-Value="@_whiteSwitch" Size="Size.Large" Class="large" Color="Color.Info" Style="width: min-content"
+                                   @onclick="WhiteSwitchCallback"
+                                   LabelPosition="LabelPosition.Start"
+                                   Label="Белый" Disabled="_biColorSwitch"/>
+                    </MudStack>
+
+                    <MudStack Row Style="width: 100%; gap: 0;">
+                        <MudColorPicker Text="@_currentUiColorValue"
+                                        Class=@($".large {(_whiteSwitch || _biColorSwitch ? "white" : "")}")
+                                        TextChanged="ColorChangeCallback"
+                                        DisableToolbar DisableInputs DisablePreview DisableColorField
+                                        DisableDragEffect DisableModeSwitch
+                                        ColorPickerMode="ColorPickerMode.RGB"
+                                        PickerVariant="PickerVariant.Static"/>
+                        <MudStack Class="gap-16" Justify="Justify.Center">
+                            <MudText Typo="Typo.h5">@(_whiteSwitch || _biColorSwitch ? "" : "Цвет")&nbsp;</MudText>
+                            <MudText Typo="Typo.h5" Inline Style="width: 365px;" Class="">Яркость @((int.Parse(_currentUiColorValue[^2..], NumberStyles.HexNumber) * 100) / 255)%</MudText>
+                        </MudStack>
+                    </MudStack>
+
+                </MudPaper>
+            </MudStack>
+        }
+    </SensorsBoxTabContainer>
+</MudContainer>
+
+
+@code {
+
+    private bool _powerSwitch;
+    private bool _biColorSwitch;
+    private bool _whiteSwitch;
+
+    private string _currentUiColorValue = "#0000FFFF";
+
+    private int? _clientId;
+
+    private bool _isProcessing;
+    private string _lastColor = "";
+
+    private LampState? _state;
+    private readonly PeriodicTimer _periodicTimer = new(TimeSpan.FromSeconds(2));
+    private Task _processingTask = Task.CompletedTask;
+
+    private async void TimerProcessing()
+    {
+        var tick = 0;
+        while (await _periodicTimer.WaitForNextTickAsync())
+        {
+            try
+            {
+                if (tick++ > 8)
+                {
+                    await UpdateState(true);
+                    tick = 0;
+                }
+                else
+                {
+                    await UpdateState(false);
+                }
+
+                await InvokeAsync(StateHasChanged);
+            }
+            catch
+            {
+                await Task.Delay(5000);
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    protected async Task OpenDialog()
+    {
+        if (_state is null) return;
+
+        var dialog = await DialogService.ShowAsync<MinMaxSettingsEditDialog>("Пороги освещенности", new DialogOptions()
+        {
+            MaxWidth = MaxWidth.ExtraLarge
+        });
+
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            var values = ((int min, int max))result.Data;
+
+            _state.IlluminationData = _state.IlluminationData with
+            {
+                Max = values.max,
+                Min = values.min,
+            };
+        }
+        
+        await StateService.UpdateIlluminationLimits(_clientId, _state.IlluminationData);
+    }
+
+    protected override Task OnInitializedAsync()
+    {
+        _processingTask = Task.Run(TimerProcessing);
+        return base.OnInitializedAsync();
+    }
+
+    private async Task UpdateState(bool full)
+    {
+        if (_clientId == null || _isProcessing) return;
+
+        _state = await StateService.GetLampState(_clientId.Value);
+
+        if (full)
+        {
+            _powerSwitch = _state.RgbState.Power;
+
+            _currentUiColorValue = $"{_state.RgbState.Color.ToLower()}{_state.RgbState.Brightness.ToString("X").ToLower()}";
+
+            _biColorSwitch = _state?.RgbState.Mode == RgbMode.BiColor;
+
+            _whiteSwitch = _currentUiColorValue[0..7] == "#ffffff";
+        }
+    }
+
+    private async Task SetRgbState()
+    {
+        if (_state is not null && _clientId is not null)
+        {
+            await StateService.SetRgbState(_clientId.Value, _state.RgbState);
+        }
+    }
+
+    private async void ChangeClient(int obj)
+    {
+        _clientId = obj;
+        _state = null;
+        await UpdateState(true);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task PowerCallback()
+    {
+        // SensorsClientService.SetLampState();
+        _isProcessing = true;
+        if (_state is not null && _clientId is not null)
+        {
+            _state.RgbState.Power = !_powerSwitch;
+
+            await StateService.SetRgbState(_clientId.Value, _state.RgbState);
+        }
+
+        _isProcessing = false;
+    }
+
+    private async Task ColorChangeCallback(string obj)
+    {
+        _currentUiColorValue = obj;
+
+        if (_state is null || _isProcessing) return;
+
+        _isProcessing = true;
+
+
+        while (_lastColor != _currentUiColorValue)
+        {
+            _lastColor = _currentUiColorValue;
+            _state.RgbState.Color = _lastColor[0..7];
+            _state.RgbState.Brightness = byte.Parse(_lastColor[^2..], NumberStyles.HexNumber);
+            await SetRgbState();
+        }
+
+        _isProcessing = false;
+    }
+
+    private async Task ModeSwitchCallback()
+    {
+        if (_state is null) return;
+        _isProcessing = true;
+        _state.RgbState.Mode = !_biColorSwitch ? RgbMode.BiColor : RgbMode.Color;
+        await SetRgbState();
+        _isProcessing = false;
+    }
+
+
+    private void WhiteSwitchCallback()
+    {
+        if (_state is null) return;
+
+        _whiteSwitch = !_whiteSwitch;
+        _currentUiColorValue = _whiteSwitch
+            ? $"#ffffff{_state.RgbState.Brightness.ToString("X").ToLower()}"
+            : $"#0000ff{_state.RgbState.Brightness.ToString("X").ToLower()}";
+    }
+
+    public void Dispose()
+    {
+        _periodicTimer.Dispose();
+        _processingTask?.Dispose();
+    }
+
+}

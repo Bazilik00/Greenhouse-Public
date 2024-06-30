@@ -1,0 +1,8 @@
+{
+    "state_plant": true,
+    "humidity_terra": 20,
+    "state_level_water": false,
+    "nominal_humidity_terra_min": 10,
+    "nominal_humidity_terra_max": 50,
+    "state_pump": false
+    }

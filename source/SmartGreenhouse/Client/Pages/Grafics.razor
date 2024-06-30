@@ -1,0 +1,26 @@
+﻿@page "/Grafics"
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-0 mud-height-full">
+    <MudStack Justify="Justify.Center" >
+        <MudSelect T="string" Label="Отслеживаемый параметр" AnchorOrigin="Origin.BottomCenter" FullWidth Class="pa-10 pt-2">
+            <MudSelectItem Value="@("Освещённость")" />
+            <MudSelectItem Value="@("Температура")" />
+            <MudSelectItem Value="@("Влажность")" />
+            <MudSelectItem Value="@("Влажность почвы")" />
+        </MudSelect>
+        <MudChart ChartType="ChartType.Line" ChartSeries="@Series" XAxisLabels="@XAxisLabels" Width="100%" Height="700px" ChartOptions="@Options"/>
+    </MudStack>
+</MudContainer>
+
+@code {
+    public ChartOptions Options = new ChartOptions();
+
+    public string[] XAxisLabels = Enumerable.Range(1, 24).Select(x => x.ToString()).ToArray();
+
+    public List<ChartSeries> Series =
+    [
+        new ChartSeries() { Name = "Камера1", Data = Enumerable.Range(1, 24).Select(x => (double)10-x).ToArray() },
+        new ChartSeries() { Name = "Камера2", Data = Enumerable.Range(1, 24).Select(x => (double)x).ToArray() },
+        new ChartSeries() { Name = "Снаружи", Data = Enumerable.Range(1, 24).Select(x => (double)20-x).ToArray() }
+    ];
+
+}

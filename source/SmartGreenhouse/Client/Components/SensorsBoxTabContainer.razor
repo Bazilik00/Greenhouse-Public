@@ -1,0 +1,49 @@
+﻿@using Client.Services
+@inject SensorsClientService SensorsClientService
+@* @typeparam TItem *@
+
+<style>
+    .center-tabs {
+        font-size: 55px;
+    }
+</style>
+
+<MudTabs @ref="_mudTabsRef" ActivePanelIndex="@_activePanel" ActivePanelIndexChanged="Callback" Elevation="4" Centered="true" TabPanelClass="center-tabs" MinimumTabWidth="900px" Class="mud-height-full large">
+    @foreach (var id in _clientIds)
+    {
+        <MudTabPanel Text=@($"Термокамера {id}") Class="mud-height-full">
+            @* @if() *@
+            @ChildContent
+        </MudTabPanel>
+    }
+</MudTabs>
+
+@code {
+
+    MudTabs _mudTabsRef = default!;
+    private int _activePanel;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    [Parameter] public int ActiveIndex { get; set; }
+
+    [Parameter] public EventCallback<int> ActiveIndexChanged { get; set; }
+
+    private int[] _clientIds = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _clientIds = await SensorsClientService.GetClientIds();
+        if (_clientIds.Length != 0)
+        {
+            await Callback(0);
+        }
+    }
+
+    private async Task Callback(int obj)
+    {
+        _activePanel = obj;
+        ActiveIndex = _clientIds[obj];
+        await ActiveIndexChanged.InvokeAsync(_clientIds[obj]);
+    }
+
+}

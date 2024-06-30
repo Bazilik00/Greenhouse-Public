@@ -1,0 +1,29 @@
+﻿@using Shared.Models
+@using Shared.ValueModels
+<MudDialog>
+    <DialogContent>
+        <MudStack Style="width: 1200px">
+            <MudSlider @bind-Value="sliderMin" Min="0" Max="@sliderMax" Color="Color.Info" Class="large custom-slider" Size="Size.Large">Минимальное значение: @sliderMin.ToString()</MudSlider>
+            <MudSlider @bind-Value="sliderMax" Min="@sliderMin" Max="100" Color="Color.Info" Class="large custom-slider" Size="Size.Large">Максимальное значение: @sliderMax.ToString()</MudSlider>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Class="large-button mt-5 ma-5" Size="Size.Large" Variant="Variant.Filled">Отмена</MudButton>
+        <MudSpacer/>
+        <MudButton Color="Color.Primary" Class="large-button mt-5 ma-5" Size="Size.Large" OnClick="Submit" Variant="Variant.Filled">Применить</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code
+{
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+    // public double _slider = 50;
+
+    public int sliderMax = 100;
+    public int sliderMin = 0;
+
+
+    void Submit() => MudDialog.Close(DialogResult.Ok((sliderMin, sliderMax)));
+    void Cancel() => MudDialog.Cancel();
+}
